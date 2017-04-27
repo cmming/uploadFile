@@ -14,21 +14,33 @@
     <p><input type="file" id="upfile"></p>
     <p><input type="button" id="upJS" value="用原生JS上传"></p>
     <p><input type="button" id="upJQuery" value="用jQuery上传"></p>
+    <!--添加显示上传进度的区域-->
+    <p id="progressNum"></p>
     <script>
         /*原生JS版*/
         document.getElementById("upJS").onclick = function () {
             /* FormData 是表单数据类 */
             var fd = new FormData();
+            // 创建 ajax 对象
             var ajax = new XMLHttpRequest();
             fd.append("upload", 1);
             /* 把文件添加到表单里 */
             fd.append("upfile", document.getElementById("upfile").files[0]);
             ajax.open("post", "test.php", true);
-
+            // 上传进度监控
+            ajax.upload.onprogress = function (ev) {  
+                if(ev.lengthComputable) {  
+                    var percent = 100 * ev.loaded/ev.total;
+                    //  显示进度
+                    document.getElementById("progressNum").innerHTML=percent;
+                    console.log(percent,ev)  
+                }  
+            }
+            // 文件上传完成
             ajax.onload = function () {
                 console.log(ajax.responseText);
             };
-
+            // 发送数据
             ajax.send(fd);
 
         }
@@ -44,8 +56,29 @@
                 processData: false,
                 contentType: false,
                 data: fd,
+                // 获取上传文件的进度
+                xhr: function(){       
+                    //  获取原生的xhr 对象
+                    var xhr = jQuery.ajaxSettings.xhr();  
+
+                    //进度事件 xhr.onload
+                    // 完成上传上传事件
+                    xhr.upload.onload = function (){  
+                        alert('finish downloading')  
+                    }  
+                    // 上传的过程中
+                    // 侦查附件上传情况    ,这个方法大概0.05-0.1秒执行一次
+                    xhr.upload.onprogress = function (ev) {  
+                        if(ev.lengthComputable) {  
+                            var percent = 100 * ev.loaded/ev.total;
+                            $("#progressNum").html(percent);  
+                            console.log(percent,ev)  
+                        }  
+                    }  
+                    return xhr;  
+                },  
                 success: function (d) {
-                    console.log(d);
+                    // console.log(d);
                 }
             });
         });
