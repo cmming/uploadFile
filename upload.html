@@ -16,32 +16,151 @@
     <p><input type="button" id="upJQuery" value="用jQuery上传"></p>
     <!--添加显示上传进度的区域-->
     <p id="progressNum"></p>
+    <img src="" alt="" width="100px" height="100px">
+    <br>
+    <br>
+    <br>
+    <h2>blob 上传文件</h2>
+    <p><input type="file" id="upfile1"></p>
+    <p><input type="button" id="upJS1" value="用原生JS上传"></p>
+    <p><input type="button" id="upJS2" value="用原生JS分片上传"></p>
+    <p><input type="button" id="upJQuery1" value="用jQuery上传"></p>
     <script>
         /*原生JS版*/
+
+        document.getElementById("upfile").onchange = function () {
+            var fileInfo = $("#upfile").get(0).files[0];
+            if (fileInfo.type.indexOf('image') !== -1) {
+                // 两种图片预览的方式 filereader 和 window.URL.createObjectURL
+                // prop和attr 的区别 prop用于获取元素自带的属性 attr则用于获取元素的自定义属性
+                $("img").prop("src", window.URL.createObjectURL(fileInfo));
+            }
+
+        }
+
         document.getElementById("upJS").onclick = function () {
-            /* FormData 是表单数据类 */
-            var fd = new FormData();
+            
             // 创建 ajax 对象
             var ajax = new XMLHttpRequest();
-            fd.append("upload", 1);
-            /* 把文件添加到表单里 */
-            fd.append("upfile", document.getElementById("upfile").files[0]);
+           
             ajax.open("post", "test.php", true);
             // 上传进度监控
-            ajax.upload.onprogress = function (ev) {  
-                if(ev.lengthComputable) {  
-                    var percent = 100 * ev.loaded/ev.total;
+            ajax.upload.onprogress = function (ev) {
+                if (ev.lengthComputable) {
+                    var percent = 100 * ev.loaded / ev.total;
                     //  显示进度
-                    document.getElementById("progressNum").innerHTML=percent;
-                    console.log(percent,ev)  
-                }  
+                    document.getElementById("progressNum").innerHTML = percent;
+                    console.log(percent, ev)
+                }
             }
             // 文件上传完成
             ajax.onload = function () {
                 console.log(ajax.responseText);
             };
+
+            /* FormData 是表单数据类 */
+            var fd = new FormData();
+
+            fd.append("upload", 1);
+            /* 把文件添加到表单里 后台使用 $_FILES['upfile'] 获取文件 */
+            fd.append("upfile", document.getElementById("upfile").files[0]);
+
             // 发送数据
             ajax.send(fd);
+
+        }
+        // blob 文件上传
+        document.getElementById("upJS1").onclick = function () {
+            var blobData=read('upfile1');
+            var fd = new FormData();
+            fd.append("upload", 1);
+            /* 把文件添加到表单里 后台使用 $_FILES['upfile'] 获取文件 */
+            fd.append("upfile", blobData);
+            // console.log(blobData);
+            $.ajax({
+                url: "test.php",
+                type: "POST",
+                processData: false,
+                contentType: false,
+                data: fd,
+                // 获取上传文件的进度
+                xhr: function () {
+                    //  获取原生的xhr 对象
+                    var xhr = jQuery.ajaxSettings.xhr();
+
+                    //进度事件 xhr.onload
+                    // 完成上传上传事件
+                    xhr.upload.onload = function () {
+                        alert('finish downloading')
+                    }
+                    // 上传的过程中
+                    // 侦查附件上传情况    ,这个方法大概0.05-0.1秒执行一次
+                    xhr.upload.onprogress = function (ev) {
+                        if (ev.lengthComputable) {
+                            var percent = 100 * ev.loaded / ev.total;
+                            $("#progressNum").html(percent);
+                            console.log(percent, ev)
+                        }
+                    }
+                    return xhr;
+                },
+                //  文件上传完成后
+                success: function (d) {
+                    // console.log(d);
+                }
+            });
+
+        }
+        // 分片上传 此时需要同步
+        document.getElementById("upJS2").onclick = function () {
+            const LENGTH = 10 * 1024 * 1024; //每次切割10M
+            var sta=0,end = sta + LENGTH,blob = null,i=1;//flag 表示上一块正在上传
+
+            var up_file = document.getElementById("upfile1").files[0],countnum=parseInt(up_file.size/LENGTH)+1;
+
+            var ajax = new XMLHttpRequest();
+           
+           do{
+                // 与后台同步进行    
+                ajax.open("post", "test.php", false);
+                // 上传进度监控  文件slice后 他的传输协议就变了为 application/octet-stream
+                // 不slice 传输协议为application/vnd.openxmlformats-officedocument.wordprocessingml.document 
+                // 所以分片后的方式传输进度要依靠自己模拟
+                // ajax.upload.onprogress = function (ev) {
+                //     if (ev.lengthComputable) {
+                //         var percent = 100 * ev.loaded / ev.total;
+                //         //  显示进度
+                //         document.getElementById("progressNum").innerHTML = percent;
+                //         console.log(percent, ev)
+                //     }
+                // }
+                // 文件上传完成 进行下一次的上传
+                // ajax.onload = function () {
+                //     // console.log(ajax.responseText);
+                //     var percent =  (i-1) /filecout+"%" ;
+                //    document.getElementById("progressNum").innerHTML = percent;
+                // };
+                // var percent =  (i-1) /filecout+"%" ;
+                // document.getElementById("progressNum").innerHTML = percent;
+                // 发送数据
+                // 对文件进行分片
+                blob = up_file.slice(sta,end);
+                var fd = new FormData();
+                // fd.append("upfile", 1);
+                /* 把文件添加到表单里 后台使用 $_FILES['upfile'] 获取文件 */
+                fd=new FormData();
+                fd.append('upfileslice',blob);
+                // 文件名称
+                fd.append('filename',up_file.name);
+                // 文件分块的个数
+                fd.append('filecount',i);
+                fd.append('allcount',countnum);
+                ajax.send(fd);
+                sta = end;
+                end = sta + LENGTH;
+                i++;
+           }while(sta<up_file.size)
+            
 
         }
 
@@ -57,32 +176,87 @@
                 contentType: false,
                 data: fd,
                 // 获取上传文件的进度
-                xhr: function(){       
+                xhr: function () {
                     //  获取原生的xhr 对象
-                    var xhr = jQuery.ajaxSettings.xhr();  
+                    var xhr = jQuery.ajaxSettings.xhr();
 
                     //进度事件 xhr.onload
                     // 完成上传上传事件
-                    xhr.upload.onload = function (){  
-                        alert('finish downloading')  
-                    }  
+                    xhr.upload.onload = function () {
+                        alert('finish downloading')
+                    }
                     // 上传的过程中
                     // 侦查附件上传情况    ,这个方法大概0.05-0.1秒执行一次
-                    xhr.upload.onprogress = function (ev) {  
-                        if(ev.lengthComputable) {  
-                            var percent = 100 * ev.loaded/ev.total;
-                            $("#progressNum").html(percent);  
-                            console.log(percent,ev)  
-                        }  
-                    }  
-                    return xhr;  
-                },  
+                    xhr.upload.onprogress = function (ev) {
+                        if (ev.lengthComputable) {
+                            var percent = 100 * ev.loaded / ev.total;
+                            $("#progressNum").html(percent);
+                            console.log(percent, ev)
+                        }
+                    }
+                    return xhr;
+                },
+                //  文件上传完成后
                 success: function (d) {
                     // console.log(d);
                 }
             });
         });
 
+        // 将文件转化为blob
+        function read(id) {
+            // 将input file的内容转换为二进制blob
+            var fs = document.getElementById(id).files[0],blobData='';
+            if (fs) {
+                var reader = new FileReader();
+                reader.readAsDataURL(fs);
+                function li(str) {
+                    var obj = document.createElement('li');
+                    obj.innerHTML = str;
+                    document.body.appendChild(obj);
+                }
+                reader.onloadstart = function () {
+                    // console.log(this);
+                    li('开始读取')
+                }
+                reader.onprogress = function () {
+                    // console.log(this);
+                    li('正在读取.....')
+                }
+                reader.onload = function (e) {
+                    var img = document.createElement('img');
+                    img.src = this.result;
+                    img.width = "100";
+                    img.height = "100";
+                    document.body.appendChild(img);
+                    // console.log(this);
+                }
+                reader.onabort = function () {
+                    li('读取中断！！')
+                }
+                reader.onerror = function () {
+                    li('读取出现错误！！')
+                }
+                // 文件转化完成
+                reader.onloadend = function () {
+                    li('FileReader读取步骤执行完毕');
+                    console.log(this.result);
+                    blobData=this.result;
+                }
+            }
+            return blobData;
+        }
+        // blob 分片
+        function sliceBlob(blob, start, end, type) {
+            type = type || blob.type;
+            if (blob.mozSlice) {
+                return blob.mozSlice(start, end, type);
+            } else if (blob.webkitSlice) {
+                return blob.webkitSlice(start, end ,type);
+            } else {
+                throw new Error("This doesn't work!");
+            }
+        }
     </script>
 </body>
 
