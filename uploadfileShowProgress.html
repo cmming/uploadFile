@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <script src="https://cdn.bootcss.com/jquery/1.11.3/jquery.min.js"></script>
+    <title>Document</title>
+</head>
+<body>
+    <script type="text/javascript">
+    function showupfile(){
+        var upfile = $("#upfile").get(0).files[0];
+        $("img").prop("src" , window.URL.createObjectURL(upfile) );
+        // uploadFile();
+    } 
+    function uploadFile(){
+        var upfile = $("#upfile").get(0).files[0];
+        var formData = new FormData();
+        formData.append("file" , upfile);
+        
+        /**   
+         * 必须false才会避开jQuery对 formdata 的默认处理   
+         * XMLHttpRequest会对 formdata 进行正确的处理   
+         */ 
+        $.ajax({
+           type: "POST",
+           url: "test.php",
+           data: formData ,
+           processData : false,  
+           //必须false才会自动加上正确的Content-Type   
+           contentType : false , 
+           xhr: function(){
+               //这是关键  获取原生的xhr对象  做以前做的所有事情
+                var xhr = $.ajaxSettings.xhr();
+                if(onprogress && xhr.upload) {
+                    xhr.upload.addEventListener("progress" , onprogress, false);
+                    return xhr;
+                }
+            } 
+        });
+    }
+    
+    
+    /**
+     *    侦查附件上传情况    ,这个方法大概0.05-0.1秒执行一次
+     */
+    function onprogress(evt){
+        var loaded = evt.loaded;                  //已经上传大小情况 
+        var tot = evt.total;                      //附件总大小 
+        var per = Math.floor(100*loaded/tot);      //已经上传的百分比  
+        $("#son").html( per +"%" );
+        $("#son").css("width" , per +"%");
+    }
+    </script>
+    <img  width="400" height="250"/><br />  
+    <input type="file" id="upfile" onchange="showupfile()"/>
+    <input type="button" value="上传图片" onclick="uploadFile()" /><br />  
+    <div id="parent">
+        <div id="son"></div>
+    </div> 
+</body>
+</html>
